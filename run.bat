@@ -1,0 +1,1 @@
+docker run -it --rm -v "C:\Users\13162\Desktop\compiler:/root/compiler" -w /root/compiler maxxing/compiler-dev bash
