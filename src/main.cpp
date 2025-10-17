@@ -4,6 +4,8 @@
 #include <memory>
 #include <string>
 
+#include <fstream>
+
 #include "ast.h"
 
 using namespace std;
@@ -32,6 +34,9 @@ int main(int argc, const char *argv[]) {
   unique_ptr<BaseAST> ast;
   auto ret = yyparse(ast);
   assert(!ret);
+
+  std::ofstream yyout(output);
+  ast->ASTTrav(yyout);
 
   // 输出解析得到的 AST, 其实就是个字符串
   ast->Dump();

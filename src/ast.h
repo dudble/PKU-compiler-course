@@ -8,6 +8,7 @@ class BaseAST {
   virtual ~BaseAST() = default;
 
   virtual void Dump() const = 0;
+  virtual void ASTTrav(std::ostream& out) const = 0;
 };
 
 // CompUnit 是 BaseAST
@@ -20,6 +21,10 @@ class CompUnitAST : public BaseAST {
     std::cout << "CompUnitAST { "; 
     func_def->Dump();
     std::cout << " }" ;
+  }
+
+  void ASTTrav(std::ostream& out) const override {
+    func_def->ASTTrav(out);
   }
 };
 
@@ -37,6 +42,13 @@ class FuncDefAST : public BaseAST {
     block->Dump();
     std::cout << " }";
   }
+
+  void ASTTrav(std::ostream& out) const override {
+    out << "fun @" << ident << "(): ";
+    func_type->ASTTrav(out);
+    block->ASTTrav(out);
+    out << "}" << std::endl;
+  }
 };
 
 // ...
@@ -46,6 +58,12 @@ class FuncTypeAST : public BaseAST {
 
   void Dump() const override {
     std::cout << "FuncTypeAST { " << INT << " }";
+  }
+
+  void ASTTrav(std::ostream& out) const override {
+    if(INT == "int"){
+      out << "i32 {" << std::endl;
+    }
   }
 };
 
@@ -57,6 +75,11 @@ class BlockAST : public BaseAST {
       std::cout << "BlockAST { ";
       stmt->Dump();
       std::cout << " }";
+    }
+
+    void ASTTrav(std::ostream& out) const override {
+      out << "%entry:" << std::endl;
+      stmt->ASTTrav(out);
     }
 };
 
@@ -72,6 +95,13 @@ class StmtAST : public BaseAST{
       //number->Dump();
       //std::cout << " }";
       std::cout << number << " }";
+    }
+
+    void ASTTrav(std::ostream& out) const override {
+      if(RETURN == "return"){
+        out << "ret";
+      }
+      out << ' ' << number << std::endl;
     }
 };
 
