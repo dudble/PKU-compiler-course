@@ -5,8 +5,10 @@
 #include <string>
 
 #include <fstream>
+#include <sstream>
 
 #include "ast.h"
+#include "koopa.h"
 
 using namespace std;
 
@@ -32,14 +34,64 @@ int main(int argc, const char *argv[]) {
 
   // 调用 parser 函数, parser 函数会进一步调用 lexer 解析输入文件的
   unique_ptr<BaseAST> ast;
-  auto ret = yyparse(ast);
-  assert(!ret);
+  auto paser_ret = yyparse(ast);
+  assert(!paser_ret);
 
-  std::ofstream yyout(output);
-  ast->ASTTrav(yyout);
+  ofstream yyout(output);
+  
+  stringstream buffer;
+  ast->ASTTrav(buffer);
+  string ast_string = buffer.str();
+  const char* str = ast_string.c_str();
 
-  // 输出解析得到的 AST, 其实就是个字符串
-  ast->Dump();
-  cout << endl;
+  //解析字符串，得到IR程序
+  koopa_program_t program;
+  koopa_error_code_t ret = koopa_parse_from_string(str, &program);
+
+  assert(ret == KOOPA_EC_SUCCESS);
+  yyout << "  .text\n";
+
+  koopa_raw_program_builder_t builder = koopa_new_raw_program_builder();
+  //将IR程序转换为raw program
+  koopa_raw_program_t raw = koopa_build_raw_program(builder, program);
+  //释放Koopa IR程序占有的内存
+  koopa_delete_program(program);
+
+  assert(raw.funcs.kind == KOOPA_RSIK_FUNCTION);
+  yyout << "  .globl main" << endl;
+  for(size_t i=0; i<raw.funcs.len; i++){
+
+    koopa_raw_function_t func = (koopa_raw_function_t)(raw.funcs.buffer[i]);
+    yyout << func->name+1 << ":" << endl;
+
+    assert(func->bbs.kind == KOOPA_RSIK_BASIC_BLOCK);
+    for(size_t j=0; j < func->bbs.len; j++){
+
+      koopa_raw_basic_block_t bb = (koopa_raw_basic_block_t)(func->bbs.buffer[j]);
+      //yyout << bb->name << ":" << endl;
+
+      assert(bb->insts.kind == KOOPA_RSIK_VALUE);
+      for(size_t k=0; k<bb->insts.len; k++){
+        koopa_raw_value_t value = (koopa_raw_value_t)(bb->insts.buffer[k]);
+        
+        assert(value->kind.tag == KOOPA_RVT_RETURN);
+        //return指令中，value代表返回值
+        koopa_raw_value_t ret_value = value->kind.data.ret.value;
+        assert(ret_value->kind.tag == KOOPA_RVT_INTEGER);
+        int32_t int_value = ret_value->kind.data.integer.value;
+        yyout << "  li a0, " << int_value << endl << "  ret";
+        
+        //assert(int_value == 0);
+
+      }
+    }
+  }
+
+
+  // 处理完成, 释放 raw program builder 占用的内存
+  // 注意, raw program 中所有的指针指向的内存均为 raw program builder 的内存
+  // 所以不要在 raw program 处理完毕之前释放 builder
+  koopa_delete_raw_program_builder(builder);
+
   return 0;
 }
